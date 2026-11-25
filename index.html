@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#0b1026">
+<title>LQ清理 - 沐沐云导航系统</title>
+<style>
+/* ========== 基础重置 ========== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;min-height:100%;overflow-x:hidden}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#0b1026;color:#fff;
+  -webkit-font-smoothing:antialiased;
+}
+a{text-decoration:none;color:inherit}
+img{display:block;max-width:100%}
+
+/* ========== 启动加载页 ========== */
+#boot{
+  position:fixed;inset:0;z-index:9999;
+  background:radial-gradient(circle at 50% 30%,#1b2a5e 0%,#0b1026 60%,#05070f 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .7s ease,visibility .7s;
+}
+#boot.hide{opacity:0;visibility:hidden;pointer-events:none}
+
+.boot-ring{
+  position:relative;width:110px;height:110px;margin-bottom:34px;
+  display:flex;align-items:center;justify-content:center;
+}
+.boot-ring i{
+  position:absolute;inset:0;border-radius:50%;
+  border:2px solid transparent;
+}
+.boot-ring i:nth-child(1){
+  border-top-color:#4facfe;border-right-color:#4facfe;
+  animation:spin 1.1s linear infinite;
+}
+.boot-ring i:nth-child(2){
+  inset:12px;border-bottom-color:#a06bff;border-left-color:#a06bff;
+  animation:spin 1.6s linear infinite reverse;
+}
+.boot-ring i:nth-child(3){
+  inset:24px;border-top-color:#00e5c0;
+  animation:spin 2.2s linear infinite;
+}
+.boot-ring span{
+  font-size:20px;font-weight:700;letter-spacing:1px;
+  background:linear-gradient(90deg,#4facfe,#a06bff,#00e5c0);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.boot-title{
+  font-size:22px;font-weight:600;letter-spacing:4px;margin-bottom:6px;
+  text-shadow:0 0 20px rgba(79,172,254,.5);
+}
+.boot-sub{font-size:11px;color:rgba(255,255,255,.45);letter-spacing:2px;margin-bottom:26px}
+
+.boot-bar-wrap{width:min(72vw,300px)}
+.boot-track{
+  position:relative;height:6px;border-radius:20px;
+  background:rgba(255,255,255,.12);overflow:hidden;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.4);
+}
+#bootBar{
+  position:absolute;left:0;top:0;height:100%;width:0%;border-radius:20px;
+  background:linear-gradient(90deg,#4facfe,#a06bff,#00e5c0);
+  background-size:200% 100%;
+  box-shadow:0 0 14px rgba(79,172,254,.9);
+  transition:width .25s cubic-bezier(.4,0,.2,1);
+  animation:flow 2s linear infinite;
+}
+@keyframes flow{to{background-position:200% 0}}
+#bootBar::after{
+  content:"";position:absolute;right:0;top:50%;transform:translateY(-50%);
+  width:10px;height:10px;border-radius:50%;background:#fff;
+  box-shadow:0 0 12px #4facfe,0 0 24px #4facfe;
+}
+.boot-info{
+  display:flex;justify-content:space-between;margin-top:12px;
+  font-size:11px;color:rgba(255,255,255,.55);letter-spacing:1px;
+}
+#bootPct{color:#4facfe;font-weight:700;font-variant-numeric:tabular-nums}
+#bootTip{transition:opacity .3s}
+
+.boot-dots{margin-top:26px;display:flex;gap:6px}
+.boot-dots i{
+  width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.3);
+  animation:blink 1.4s infinite;
+}
+.boot-dots i:nth-child(2){animation-delay:.2s}
+.boot-dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+
+/* ========== 雪花画布 ========== */
+#snow{position:fixed;inset:0;z-index:1;pointer-events:none}
+
+/* ========== 主容器 ========== */
+#app{
+  position:relative;z-index:2;
+  opacity:0;transform:translateY(20px);
+  transition:opacity .8s ease,transform .8s ease;
+  padding:26px 16px 40px;
+  max-width:520px;margin:0 auto;
+}
+#app.show{opacity:1;transform:none}
+
+/* 背景图 */
+.bg{
+  position:fixed;inset:0;z-index:0;
+  background:url("https://b.hoisen.com/yvqaUJ") center/cover no-repeat;
+  filter:blur(2px) brightness(.55);
+  transform:scale(1.08);
+  animation:bgZoom 24s ease-in-out infinite alternate;
+}
+@keyframes bgZoom{to{transform:scale(1.18) translateY(-14px)}}
+.bg::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(11,16,38,.55),rgba(11,16,38,.85));
+}
+
+/* ========== 卡片 ========== */
+.card{
+  position:relative;border-radius:22px;
+  background:rgba(255,255,255,.10);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 10px 40px rgba(0,0,0,.35);
+  overflow:hidden;
+}
+.card::before{
+  content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,255,255,.22),transparent 45%);
+}
+
+/* 头部 */
+.head{padding:30px 20px 24px;text-align:center}
+.avatar{
+  width:96px;height:96px;margin:0 auto 16px;border-radius:50%;
+  padding:3px;background:linear-gradient(135deg,#4facfe,#a06bff,#00e5c0);
+  animation:avatarGlow 3.5s ease-in-out infinite;
+}
+@keyframes avatarGlow{
+  0%,100%{box-shadow:0 0 0 0 rgba(79,172,254,.5)}
+  50%{box-shadow:0 0 0 12px rgba(79,172,254,0)}
+}
+.avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid #0b1026}
+.nick{
+  font-size:26px;font-weight:700;letter-spacing:2px;
+  background:linear-gradient(90deg,#8ec5ff,#c9a6ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.badge{
+  display:inline-block;margin-top:8px;padding:3px 12px;border-radius:20px;
+  font-size:10px;letter-spacing:1px;color:#9fe8ff;
+  background:rgba(79,172,254,.15);border:1px solid rgba(79,172,254,.35);
+}
+
+/* 运行天数 */
+.run{padding:16px 20px;margin-bottom:14px;text-align:center;font-size:13px;line-height:2}
+.run b{color:#7dd3ff;font-variant-numeric:tabular-nums}
+.run .sep{margin:0 8px;color:rgba(255,255,255,.3)}
+.run a{color:#a06bff;font-weight:700;border-bottom:1px dashed rgba(160,107,255,.5)}
+
+/* 访客 */
+.visit{
+  display:flex;justify-content:space-around;align-items:center;
+  padding:14px;margin-bottom:14px;
+}
+.v-item{text-align:center;flex:1}
+.v-item+.v-item{border-left:1px solid rgba(255,255,255,.12)}
+.v-num{
+  font-size:20px;font-weight:700;color:#7dd3ff;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 14px rgba(79,172,254,.6);
+}
+.v-num.flip{animation:flip .5s ease}
+@keyframes flip{
+  0%{transform:rotateX(0)}50%{transform:rotateX(90deg);opacity:.3}100%{transform:rotateX(0)}
+}
+.v-label{font-size:10px;color:rgba(255,255,255,.5);margin-top:3px;letter-spacing:1px}
+
+/* ========== 按钮列表 ========== */
+.list{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.btn{
+  position:relative;display:flex;align-items:center;gap:14px;
+  padding:14px 16px;border-radius:18px;overflow:hidden;
+  background:rgba(255,255,255,.10);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 6px 20px rgba(0,0,0,.28);
+  transition:transform .28s cubic-bezier(.34,1.56,.64,1),box-shadow .28s,background .28s,border-color .28s;
+  will-change:transform;
+}
+.btn::before{
+  content:"";position:absolute;inset:0;opacity:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.20),transparent 55%);
+  transition:opacity .3s;
+}
+/* 流光扫过 */
+.btn::after{
+  content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);
+  transform:skewX(-20deg);
+}
+.btn:active{
+  transform:scale(.965) translateY(1px);
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+  background:rgba(255,255,255,.16);
+  border-color:rgba(255,255,255,.32);
+}
+.btn:hover::before{opacity:1}
+.btn:hover::after{animation:sweep .7s ease}
+@keyframes sweep{to{left:130%}}
+
+/* 涟漪 */
+.ripple{
+  position:absolute;border-radius:50%;transform:scale(0);
+  background:rgba(255,255,255,.35);pointer-events:none;
+  animation:rip .6s ease-out forwards;
+}
+@keyframes rip{to{transform:scale(3.2);opacity:0}}
+
+.b-icon{
+  flex:0 0 46px;width:46px;height:46px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 14px rgba(0,0,0,.3);
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+}
+.btn:active .b-icon{transform:rotate(-10deg) scale(1.12)}
+.b-icon svg{width:24px;height:24px;fill:#fff}
+.i-shop{background:linear-gradient(135deg,#ff9a56,#ff5e62)}
+.i-qq{background:linear-gradient(135deg,#12b7f5,#0091ff)}
+.i-tg{background:linear-gradient(135deg,#37aee2,#1e96c8)}
+.i-ks{background:linear-gradient(135deg,#ff8a3d,#ff5722)}
+
+.b-txt{flex:1;min-width:0}
+.b-title{font-size:15px;font-weight:600;letter-spacing:.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-url{
+  font-size:11px;color:rgba(255,255,255,.45);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.b-arrow{
+  flex:0 0 auto;width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);font-size:12px;
+  transition:transform .3s,background .3s;
+}
+.btn:hover .b-arrow{transform:translateX(3px);background:rgba(255,255,255,.22)}
+
+/* ========== 设备信息 ========== */
+.dev{padding:16px 18px;margin-bottom:14px}
+.dev-h{
+  display:flex;align-items:center;gap:8px;margin-bottom:14px;
+  font-size:13px;font-weight:600;letter-spacing:1px;color:#9fe8ff;
+}
+.dev-h svg{width:16px;height:16px;fill:#4facfe}
+.dev-h .live{
+  margin-left:auto;width:7px;height:7px;border-radius:50%;background:#00e5c0;
+  box-shadow:0 0 0 0 rgba(0,229,192,.6);animation:pulse 1.8s infinite;
+}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(0,229,192,.6)}
+  70%{box-shadow:0 0 0 9px rgba(0,229,192,0)}
+  100%{box-shadow:0 0 0 0 rgba(0,229,192,0)}
+}
+.dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.d-item{
+  padding:10px 12px;border-radius:14px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10);
+  transition:transform .3s,background .3s;
+}
+.d-item:active{transform:scale(.96);background:rgba(255,255,255,.14)}
+.d-k{font-size:9px;color:rgba(255,255,255,.45);letter-spacing:1px;margin-bottom:4px}
+.d-v{font-size:12px;font-weight:600;color:#eaf3ff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-v em{font-style:normal;color:#7dd3ff}
+.d-full{grid-column:span 2}
+
+/* 电量条 */
+.batt{display:flex;align-items:center;gap:8px;margin-top:5px}
+.batt-track{flex:1;height:5px;border-radius:10px;background:rgba(255,255,255,.15);overflow:hidden}
+.batt-fill{height:100%;width:0;border-radius:10px;
+  background:linear-gradient(90deg,#00e5c0,#7dd3ff);transition:width 1s ease}
+
+/* ========== 音乐播放器 ========== */
+.player{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:18px;z-index:50;
+  display:flex;align-items:center;gap:10px;
+  padding:7px 14px 7px 7px;border-radius:40px;
+  background:rgba(20,26,54,.72);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 8px 30px rgba(0,0,0,.5);
+  animation:float 4s ease-in-out infinite;
+}
+@keyframes float{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
+
+.disc{
+  position:relative;width:40px;height:40px;border-radius:50%;flex:0 0 40px;
+  background:conic-gradient(from 0deg,#4facfe,#a06bff,#00e5c0,#4facfe);
+  display:flex;align-items:center;justify-content:center;
+  animation:spin 6s linear infinite;animation-play-state:paused;
+}
+.disc.on{animation-play-state:running}
+.disc::before{
+  content:"";position:absolute;inset:3px;border-radius:50%;
+  background:#141a36 url("https://picsum.photos/id/1025/120/120") center/cover;
+}
+.disc::after{
+  content:"";position:absolute;width:9px;height:9px;border-radius:50%;
+  background:#141a36;border:2px solid rgba(255,255,255,.6);z-index:2;
+}
+/* 音波 */
+.eq{display:flex;align-items:flex-end;gap:2px;height:14px}
+.eq i{width:2.5px;height:4px;border-radius:2px;background:#4facfe;
+  animation:eq 1s ease-in-out infinite;animation-play-state:paused}
+.eq.on i{animation-play-state:running}
+.eq i:nth-child(1){animation-delay:0s}
+.eq i:nth-child(2){animation-delay:.15s}
+.eq i:nth-child(3){animation-delay:.3s}
+.eq i:nth-child(4){animation-delay:.45s}
+@keyframes eq{0%,100%{height:4px;opacity:.5}50%{height:14px;opacity:1}}
+
+.p-txt{min-width:76px}
+.p-name{font-size:11px;font-weight:600;white-space:nowrap}
+.p-sub{font-size:9px;color:rgba(255,255,255,.45);margin-top:1px}
+.p-btn{
+  width:30px;height:30px;border-radius:50%;border:none;flex:0 0 30px;
+  background:linear-gradient(135deg,#4facfe,#a06bff);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 12px rgba(79,172,254,.5);
+  transition:transform .25s;
+}
+.p-btn:active{transform:scale(.88)}
+.p-btn svg{width:13px;height:13px;fill:#fff}
+
+/* 页脚 */
+.foot{text-align:center;font-size:10px;color:rgba(255,255,255,.35);
+  letter-spacing:1px;line-height:1.9;margin-top:22px}
+
+/* 提示条 */
+#toast{
+  position:fixed;left:50%;top:24px;transform:translateX(-50%) translateY(-80px);
+  z-index:999;padding:9px 20px;border-radius:30px;font-size:12px;
+  background:rgba(20,26,54,.9);border:1px solid rgba(79,172,254,.4);
+  box-shadow:0 6px 24px rgba(0,0,0,.5);
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+@media (max-width:360px){
+  .dev-grid{grid-template-columns:1fr}
+  .d-full{grid-column:span 1}
+  .b-title{font-size:14px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 启动加载页 ============ -->
+<div id="boot">
+  <div class="boot-ring"><i></i><i></i><i></i><span>LQ</span></div>
+  <div class="boot-title">LQ清理</div>
+  <div class="boot-sub">沐沐云导航系统</div>
+  <div class="boot-bar-wrap">
+    <div class="boot-track"><div id="bootBar"></div></div>
+    <div class="boot-info">
+      <span id="bootTip">正在初始化…</span>
+      <span id="bootPct">0%</span>
+    </div>
+  </div>
+  <div class="boot-dots"><i></i><i></i><i></i></div>
+</div>
+
+<!-- ============ 背景 & 雪花 ============ -->
+<div class="bg"></div>
+<canvas id="snow"></canvas>
+
+<!-- ============ 主体 ============ -->
+<div id="app">
+
+  <div class="card head">
+    <div class="avatar"><img src="https://picsum.photos/id/1011/200/200
+" alt="头像"></div>
+    <div class="nick">沐沐清理</div>
+    <div class="badge">官方认证 · 唯一站点</div>
+  </div>
+
+  <div class="card run">
+    本站点已安全运行 <b id="days">1</b> 天
+    <span class="sep">|</span>
+    <a href="javascript:;"></a>
+  </div>
+
+  <div class="card visit">
+    <div class="v-item"><div class="v-num" id="vToday">0</div><div class="v-label">今日访问</div></div>
+    <div class="v-item"><div class="v-num" id="vTotal">0</div><div class="v-label">总访问量</div></div>
+    <div class="v-item"><div class="v-num" id="vNow">1</div><div class="v-label">在线人数</div></div>
+  </div>
+
+  <div class="list">
+    <a class="btn" href="https://y-sc.ymy9.com/shop/5HCSBK7Y">
+      <div class="b-icon i-shop">
+        <svg viewBox="0 0 24 24"><path d="M12 2 2 7v2h20V7L12 2zm-9 9v9h6v-6h6v6h6v-9H3z"/></svg>
+      </div>
+      <div class="b-txt">
+        <div class="b-title">LQ清理官方店铺[点我进入]</div>
+        <div class="b-url"></div>
+      </div>
+      <div class="b-arrow">›</div>
+    </a>
+
+    <a class="btn" href="https://b.hoisen.com/POd8Xn">
+      <div class="b-icon i-qq">
+        <svg viewBox="0 0 24 24"><path d="M12 2C7.3 2 3.5 5.9 3.5 10.6c0 1.6-.4 2.6-1.2 4-.6 1-.9 1.7-.9 2.4 0 1.3 1.2 1.9 2.2 1.4.6-.3 1.1-.9 1.6-1.6.3.9.9 1.7 1.7 2.3-.6.4-1 .9-1 1.5 0 1 1.4 1.4 3.1 1.4h3.6c1.7 0 3.1-.4 3.1-1.4 0-.6-.4-1.1-1-1.5.8-.6 1.4-1.4 1.7-2.3.5.7 1 1.3 1.6 1.6 1 .5 2.2-.1 2.2-1.4 0-.7-.3-1.4-.9-2.4-.8-1.4-1.2-2.4-1.2-4C20.5 5.9 16.7 2 12 2z"/></svg>
+      </div>
+      <div class="b-txt">
+        <div class="b-title">QQ售后(交流)群[点我跳转]</div>
+        <div class="b-url"></div>
+      </div>
+      <div class="b-arrow">›</div>
+    </a>
+
+    <a class="btn" href="http://t.me/oqqn6">
+      <div class="b-icon i-tg">
+        <svg viewBox="0 0 24 24"><path d="M9.8 15.5 9.5 19c.5 0 .7-.2 1-.5l2.4-2.3 5 3.6c.9.5 1.5.2 1.7-.8l3-14.2c.3-1.2-.4-1.8-1.3-1.4L2.7 9.3c-1.2.5-1.2 1.1-.2 1.4l5 1.6L18.4 7c.5-.3 1-.2.6.2L9.8 15.5z"/></svg>
+      </div>
+      <div class="b-txt">
+        <div class="b-title">TG官方频道:@oqqnb6</div>
+        <div class="b-url"></div>
+      </div>
+      <div class="b-arrow">›</div>
+    </a>
+
+    <a class="btn" href="https://v.kuaishou.com/JRMAkkyF">
+      <div class="b-icon i-ks">
+        <svg viewBox="0 0 24 24"><path d="M17.5 2A6.5 6.5 0 0 1 24 8.5c0 1.8-.7 3.4-1.9 4.6 1.2 1.2 1.9 2.8 1.9 4.6A6.5 6.5 0 0 1 17.5 24c-2.6 0-4.9-1.5-6-3.7-1.1 2.2-3.4 3.7-6 3.7A6.5 6.5 0 0 1 0 17.5c0-1.8.7-3.4 1.9-4.6A6.4 6.4 0 0 1 0 8.5 6.5 6.5 0 0 1 6.5 2c2.6 0 4.9 1.5 6 3.7C13.6 3.5 15.9 2 17.5 2zm-11 6a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zm11 0a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"/></svg>
+      </div>
+      <div class="b-txt">
+        <div class="b-title">点我跳转LQ快手</div>
+        <div class="b-url"></div>
+      </div>
+      <div class="b-arrow">›</div>
+    </a>
+  </div>
+
+  <!-- 设备信息 -->
+  <div class="card dev">
+    <div class="dev-h">
+      <svg viewBox="0 0 24 24"><path d="M17 1H7a2 2 0 0 0-2 2v18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm-5 20a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5-5H7V4h10v12z"/></svg>
+      设备信息
+      <span class="live"></span>
+    </div>
+    <div class="dev-grid">
+      <div class="d-item"><div class="d-k">系统</div><div class="d-v" id="dOs">—</div></div>
+      <div class="d-item"><div class="d-k">浏览器</div><div class="d-v" id="dBrow">—</div></div>
+      <div class="d-item"><div class="d-k">屏幕分辨率</div><div class="d-v" id="dScr">—</div></div>
+      <div class="d-item"><div class="d-k">像素比</div><div class="d-v" id="dDpr">—</div></div>
+      <div class="d-item"><div class="d-k">CPU核心</div><div class="d-v" id="dCpu">—</div></div>
+      <div class="d-item"><div class="d-k">设备内存</div><div class="d-v" id="dMem">—</div></div>
+      <div class="d-item"><div class="d-k">网络类型</div><div class="d-v" id="dNet">—</div></div>
+      <div class="d-item"><div class="d-k">语言</div><div class="d-v" id="dLang">—</div></div>
+      <div class="d-item d-full">
+        <div class="d-k">电池电量</div>
+        <div class="batt">
+          <div class="batt-track"><div class="batt-fill" id="dBatt"></div></div>
+          <span class="d-v" id="dBattTxt" style="font-size:11px">—</span>
+        </div>
+      </div>
+      <div class="d-item d-full"><div class="d-k">UserAgent</div><div class="d-v" id="dUa" style="font-size:10px;font-weight:400">—</div></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    © 2026 LQ清理 | 沐沐云网络技术支持<br>
+    本页面由 LQ清理 独家维护
+  </div>
+</div>
+
+<!-- ============ 音乐播放器 ============ -->
+<div class="player" id="player">
+  <div class="disc" id="disc"></div>
+  <div class="p-txt">
+    <div class="p-name">背景音乐</div>
+    <div class="p-sub" id="pSub">点击播放</div>
+  </div>
+  <div class="eq" id="eq"><i></i><i></i><i></i><i></i></div>
+  <button class="p-btn" id="pBtn">
+    <svg id="pIco" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+</div>
+
+<audio id="audio" loop preload="auto"
+  src="https://media.qingdou.vip/bg_music_mp3/a5e9b9b32c6fe5e9a56bfa45a67b9923.mp3"></audio>
+
+<div id="toast"></div>
+
+<script>
+/* ==========================================================
+   1. 启动加载进度条 —— 时间驱动，rAF 保证流畅
+   ========================================================== */
+(function(){
+  var bar   = document.getElementById('bootBar');
+  var pct   = document.getElementById('bootPct');
+  var tip   = document.getElementById('bootTip');
+  var boot  = document.getElementById('boot');
+  var app   = document.getElementById('app');
+
+  var steps = [
+    [12, '正在初始化系统…'],
+    [28, '加载样式资源…'],
+    [45, '连接服务器…'],
+    [63, '校验站点安全…'],
+    [80, '渲染页面组件…'],
+    [94, '即将完成…'],
+    [100,'加载完成']
+  ];
+
+  var DURATION = 2600;          // 总时长 ms，想慢点就调大
+  var start = null, idx = 0, cur = 0;
+
+  function frame(ts){
+    if(!start) start = ts;
+    var t = Math.min((ts - start) / DURATION, 1);
+    // easeOutCubic：前快后慢，视觉更自然
+    var eased = 1 - Math.pow(1 - t, 3);
+    cur = eased * 100;
+
+    bar.style.width = cur.toFixed(1) + '%';
+    pct.textContent = Math.floor(cur) + '%';
+
+    while(idx < steps.length && cur >= steps[idx][0]){
+      tip.textContent = steps[idx][1];
+      idx++;
+    }
+
+    if(t < 1){
+      requestAnimationFrame(frame);
+    }else{
+      finish();
+    }
+  }
+
+  function finish(){
+    tip.textContent = '欢迎回来 ✦';
+    setTimeout(function(){
+      boot.classList.add('hide');
+      app.classList.add('show');
+      startCounters();
+      document.body.style.overflow = 'auto';
+    }, 450);
+  }
+
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(frame);
+})();
+
+/* ==========================================================
+   2. 运行天数：第一天起算，自动累加
+   ========================================================== */
+(function(){
+  var START = new Date('2026-11-25T00:00:00');   // 改成你的建站日期
+  var el = document.getElementById('days');
+  var now = new Date();
+  var d = Math.floor((now - START) / 86400000) + 1;  // +1 = 第一天
+  if(d < 1) d = 1;
+  el.textContent = d.toLocaleString();
+})();
+
+/* ==========================================================
+   3. 访客计数（本地持久化 + 数字滚动）
+   ========================================================== */
+function startCounters(){
+  function num(el, target, dur){
+    var s = 0, t0 = null;
+    function f(ts){
+      if(!t0) t0 = ts;
+      var p = Math.min((ts - t0) / dur, 1);
+      el.textContent = Math.floor(s + (target - s) * (1 - Math.pow(1-p,3))).toLocaleString();
+      if(p < 1) requestAnimationFrame(f);
+      else el.classList.add('flip');
+    }
+    requestAnimationFrame(f);
+  }
+
+  var total = parseInt(localStorage.getItem('zy_total') || '128460', 10) + 1;
+  var today = parseInt(localStorage.getItem('zy_today') || '0', 10);
+  var day   = localStorage.getItem('zy_day') || '';
+  var now   = new Date().toDateString();
+  if(day !== now){ today = 0; localStorage.setItem('zy_day', now); }
+  today++;
+  localStorage.setItem('zy_total', total);
+  localStorage.setItem('zy_today', today);
+
+  num(document.getElementById('vTotal'), total, 1400);
+  num(document.getElementById('vToday'), today, 1000);
+
+  // 在线人数：随机波动
+  var now2 = document.getElementById('vNow');
+  function tick(){
+    now2.textContent = Math.floor(Math.random()*40) + 20;
+  }
+  tick(); setInterval(tick, 5000);
+}
+
+/* ==========================================================
+   4. 雪花（Canvas，按屏幕密度自适应，自动降帧省电）
+   ========================================================== */
+(function(){
+  var cv = document.getElementById('snow');
+  var cx = cv.getContext('2d');
+  var W, H, flakes = [], dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function resize(){
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    cx.setTransform(dpr,0,0,dpr,0,0);
+    var count = Math.min(Math.floor(W / 12), 70);   // 数量随宽度自适应
+    flakes = [];
+    for(var i=0;i<count;i++) flakes.push(make(true));
+  }
+
+  function make(rand){
+    var r = Math.random()*2.2 + 0.8;
+    return {
+      x: Math.random()*W,
+      y: rand ? Math.random()*H : -10,
+      r: r,
+      s: r*0.5 + 0.3,          // 下落速度
+      d: Math.random()*Math.PI*2,
+      a: Math.random()*0.5 + 0.3,
+      sw: Math.random()*0.8 + 0.3
+    };
+  }
+
+  var last = 0, FPS = 40, gap = 1000/FPS;
+  function loop(ts){
+    requestAnimationFrame(loop);
+    if(ts - last < gap) return;   // 限帧，手机更省电不卡
+    last = ts;
+
+    cx.clearRect(0,0,W,H);
+    cx.fillStyle = '#fff';
+    for(var i=0;i<flakes.length;i++){
+      var f = flakes[i];
+      f.y += f.s;
+      f.d += 0.01;
+      f.x += Math.sin(f.d) * f.sw;
+      if(f.y > H + 10 || f.x < -10 || f.x > W + 10){
+        flakes[i] = make(false);
+        continue;
+      }
+      cx.globalAlpha = f.a;
+      cx.beginPath();
+      cx.arc(f.x, f.y, f.r, 0, Math.PI*2);
+      cx.fill();
+    }
+    cx.globalAlpha = 1;
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  if(!reduce) requestAnimationFrame(loop);
+})();
+
+/* ==========================================================
+   5. 按钮：涟漪 + 震动反馈
+   ========================================================== */
+document.querySelectorAll('.btn').forEach(function(b){
+  b.addEventListener('click', function(e){
+    var r = document.createElement('span');
+    r.className = 'ripple';
+    var rect = b.getBoundingClientRect();
+    var size = Math.max(rect.width, rect.height);
+    r.style.width = r.style.height = size + 'px';
+    r.style.left = (e.clientX - rect.left - size/2) + 'px';
+    r.style.top  = (e.clientY - rect.top  - size/2) + 'px';
+    b.appendChild(r);
+    setTimeout(function(){ r.remove(); }, 600);
+    if(navigator.vibrate) navigator.vibrate(12);
+  });
+});
+
+/* ==========================================================
+   6. 设备信息（拉满）
+   ========================================================== */
+(function(){
+  var ua = navigator.userAgent;
+
+  // 系统
+  var os = '未知';
+  if(/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+  else if(/Windows NT 6.3/.test(ua)) os = 'Windows 8.1';
+  else if(/Windows/.test(ua)) os = 'Windows';
+  else if(/iPhone/.test(ua)) os = 'iOS ' + (ua.match(/OS (\d+_\d+)/)||[])[1]?.replace('_','.');
+  else if(/iPad/.test(ua)) os = 'iPadOS';
+  else if(/Android/.test(ua)) os = 'Android ' + (ua.match(/Android ([\d.]+)/)||[])[1];
+  else if(/Mac OS X/.test(ua)) os = 'macOS';
+  else if(/Linux/.test(ua)) os = 'Linux';
+  document.getElementById('dOs').textContent = os || '未知';
+
+  // 浏览器
+  var br = '未知';
+  if(/MicroMessenger/.test(ua)) br = '微信内置';
+  else if(/QQ\//.test(ua)) br = 'QQ浏览器';
+  else if(/UCBrowser/.test(ua)) br = 'UC浏览器';
+  else if(/Edg\//.test(ua)) br = 'Edge ' + (ua.match(/Edg\/([\d.]+)/)||[])[1];
+  else if(/OPR\//.test(ua)) br = 'Opera';
+  else if(/Chrome\//.test(ua)) br = 'Chrome ' + (ua.match(/Chrome\/([\d.]+)/)||[])[1];
+  else if(/Firefox\//.test(ua)) br = 'Firefox ' + (ua.match(/Firefox\/([\d.]+)/)||[])[1];
+  else if(/Safari\//.test(ua)) br = 'Safari';
+  document.getElementById('dBrow').textContent = br;
+
+  // 屏幕
+  document.getElementById('dScr').textContent =
+    screen.width + ' × ' + screen.height;
+  document.getElementById('dDpr').innerHTML =
+    '<em>' + (window.devicePixelRatio||1) + 'x</em> · ' +
+    window.innerWidth + '×' + window.innerHeight;
+  document.getElementById('dCpu').textContent =
+    (navigator.hardwareConcurrency || '未知') + ' 核';
+  document.getElementById('dMem').textContent =
+    (navigator.deviceMemory ? navigator.deviceMemory + ' GB' : '未知');
+  document.getElementById('dLang').textContent =
+    (navigator.language || '未知').toUpperCase();
+  document.getElementById('dUa').textContent = ua;
+
+  // 网络
+  var net = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  document.getElementById('dNet').textContent = net
+    ? (net.effectiveType || net.type || '未知').toUpperCase()
+    : (navigator.onLine ? 'ONLINE' : 'OFFLINE');
+
+  // 电池
+  if(navigator.getBattery){
+    navigator.getBattery().then(function(b){
+      function up(){
+        var lv = Math.round(b.level * 100);
+        document.getElementById('dBatt').style.width = lv + '%';
+        document.getElementById('dBattTxt').textContent = lv + '%' + (b.charging ? ' ⚡' : '');
+      }
+      up();
+      b.addEventListener('levelchange', up);
+      b.addEventListener('chargingchange', up);
+    }).catch(function(){
+      document.getElementById('dBattTxt').textContent = '不支持';
+    });
+  }else{
+    document.getElementById('dBattTxt').textContent = '不支持';
+  }
+})();
+
+/* ==========================================================
+   7. 音乐播放器
+   ========================================================== */
+(function(){
+  var au   = document.getElementById('audio');
+  var btn  = document.getElementById('pBtn');
+  var ico  = document.getElementById('pIco');
+  var disc = document.getElementById('disc');
+  var eq   = document.getElementById('eq');
+  var sub  = document.getElementById('pSub');
+
+  var PLAY = '<path d="M8 5v14l11-7z"/>';
+  var PAUSE = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+
+  function setState(on){
+    ico.innerHTML = on ? PAUSE : PLAY;
+    disc.classList.toggle('on', on);
+    eq.classList.toggle('on', on);
+    sub.textContent = on ? '正在播放' : '已暂停';
+  }
+
+  btn.addEventListener('click', function(){
+    if(au.paused){
+      au.play().then(function(){ setState(true); toast('♪ 音乐已开启'); })
+              .catch(function(){ toast('请点击后再播放'); });
+    }else{
+      au.pause(); setState(false);
+    }
+    if(navigator.vibrate) navigator.vibrate(8);
+  });
+
+  au.addEventListener('ended', function(){ setState(false); });
+  au.addEventListener('error', function(){ sub.textContent = '加载失败'; });
+  au.addEventListener('canplay', function(){ sub.textContent = '就绪'; });
+
+  // 切后台自动暂停，省电省流量
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden && !au.paused){ au.pause(); setState(false); }
+  });
+})();
+
+/* ==========================================================
+   8. Toast
+   ========================================================== */
+var _tt;
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(function(){ t.classList.remove('show'); }, 1800);
+}
+</script>
+</body>
+</html>
